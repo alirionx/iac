@@ -41,21 +41,26 @@
 - name: "Join Workers if needed"
   hosts: workers
   tasks:
-    #- debug:
-    #    msg: "{{inventory_hostname}} {{hostvars[swarm_init]['node_list']['stdout']}} "
-    
-    - shell: "docker swarm join --token {{hostvars[swarm_init]['join_token_worker']['stdout']}} {{hostlist[swarm_init][0]['ip']}}:{{swarm_port}}"
+    - shell: "docker swarm join --token {{hostvars[swarm_init]['join_token_worker']['stdout']}} {{swarm_init}}.{{dev_domain}}:{{swarm_port}}"
       when: inventory_hostname not in hostvars[swarm_init]['node_list']['stdout'] 
 
 - name: "Join Managers if needed"
   hosts: managers
   tasks:
-    - shell: "docker swarm join --token {{hostvars[swarm_init]['join_token_manager']['stdout']}} {{hostlist[swarm_init][0]['ip']}}:{{swarm_port}}"
+    - shell: "docker swarm join --token {{hostvars[swarm_init]['join_token_manager']['stdout']}} {{swarm_init}}.{{dev_domain}}:{{swarm_port}}"
       when: inventory_hostname not in hostvars[swarm_init]['node_list']['stdout'] 
 
 #---------------------------------------------------------------
-- name: Set command and arguments
+
+- name: Create Test Service (nginx on expose port 8080)
   hosts: swarm_init
+  vars_prompt:
+    - name: test_service
+      prompt: "Create a test service? (yes/no)"
+      private: no
   tasks:
     - name: "Test-Service"
       shell: "docker service create --name my_web --replicas 3 --publish 8080:80 nginx"
+      when: test_service == 'yes'
+
+#---------------------------------------------------------------
