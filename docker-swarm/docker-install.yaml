@@ -1,0 +1,47 @@
+
+#Apply via: ansible-playbook -i ./inventory.yaml --become docker-install.yaml
+
+#---------------------------------------------------------------
+
+- name: Install docker-ce on all stack hosts  
+  hosts: stack
+  tasks:
+  - name: "Update apt packages"
+    apt:
+      update_cache: "yes"
+
+  - name: "Install needed dependencies / packages"
+    apt:
+      name: "{{docker_dependencies}}" 
+
+  - name: "Add Docker GPG Key"
+    apt_key: 
+      url: https://download.docker.com/linux/ubuntu/gpg
+      state: present
+
+  - name: Add Docker Repository
+    apt_repository:
+      repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ os_version }} stable"
+      state: present
+
+  - name: "Update apt packages -> again ;)"
+    apt:
+      update_cache: "yes"
+
+  - name: "Install {{docker_variant}}"
+    apt:
+      name: "{{docker_variant}}"
+      state: present
+
+  - name: "Enable docker service"
+    service:
+      name: docker
+      state: started
+
+  - name: "add ansible standard user to docker group"
+    user:
+      name: "{{ansible_user}}"
+      groups: docker
+
+
+#---------------------------------------------------------------
