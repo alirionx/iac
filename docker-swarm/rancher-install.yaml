@@ -1,0 +1,32 @@
+
+#Apply via: ansible-playbook -i ./inventory.yaml --become rancher-install.yaml
+
+#---------------------------------------------------------------
+
+- name: Prepare Rancher Installation on K3s Cluster
+  hosts: kube_init
+  tasks:
+  - name: Download and install helm  client
+    url: "https://get.helm.sh/helm-v{{helm_cli_version}}-linux-amd64.tar.gz"
+    dest: "/tmp/helm-v{{helm_cli_version}}-linux-amd64.tar.gz"
+  - unarchive:
+    src: "/tmp/helm-v{{helm_cli_version}}-linux-amd64.tar.gz"
+    dest: /tmp"
+  - command: mv /tmp/linux-amd64/helm /usr/local/bin/
+
+  # kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.0.4/cert-manager.crds.yaml
+  # kubectl create namespace cert-manager
+  # helm repo add jetstack https://charts.jetstack.io
+  # helm repo update
+  # helm install cert-manager jetstack/cert-manager --namespace cert-manager --version v1.0.4
+  # 
+  # helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
+  # kubectl create namespace cattle-system
+  # "helm install rancher rancher-latest/rancher --namespace cattle-system --set hostname={{rancher_fqdn}}"
+
+  
+
+
+  
+
+#---------------------------------------------------------------

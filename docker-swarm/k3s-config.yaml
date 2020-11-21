@@ -1,0 +1,68 @@
+
+#Apply via: ansible-playbook -i ./inventory.yaml --become k3s-config.yaml
+
+#---------------------------------------------------------------
+
+- name: Prepare K3S Installation
+  hosts: stack
+  tasks:
+  # - name: Create local image directory
+  #   file:
+  #     path: "{{kube_image_dir}}"
+  #     state: directory
+  # - name: Copy airgap to image dir
+  #   copy: 
+  #     src: "./src/{{kube_airgap_image}}"
+  #     dest: "{{kube_image_dir}}"
+  - name: Copy k3s binaries to bin folder
+    copy: 
+      src: "./src/k3s"
+      dest: "/usr/local/bin"
+      mode: 0744
+  - name: Copy k3s install script
+    copy: 
+      src: "./src/install.sh"
+      dest: "/tmp"
+      mode: 0744
+
+  # - name: Create rancher conf dir
+  #   file:
+  #     path: "{{rancher_conf_path}}"
+  #     state: directory
+
+  # - name: Create image registry conf yaml from template 
+  #   template:
+  #     src: ./config_templates/registries.template
+  #     dest: "{{rancher_conf_path}}/registries.yaml"
+
+
+#---------------------------------------------------------------
+
+- name: Install and configure K3S (lightweight Kube) master
+  hosts: kube_init
+  tasks:
+    - shell: "INSTALL_K3S_SKIP_DOWNLOAD=true /tmp/install.sh"
+      args:
+        warn: false
+
+    - name: get cluster join token 
+      shell: "cat /var/lib/rancher/k3s/server/node-token"
+      register: join_token
+
+    - service:
+        name: k3s
+        state: restarted
+        enabled: yes
+
+#-------------------------
+- name: Install and configure K3S (lightweight Kube) workers
+  hosts: workers
+  tasks:
+    - shell: "INSTALL_K3S_SKIP_DOWNLOAD=true K3S_URL=https://{{kube_init}}:6443 K3S_TOKEN={{hostvars[kube_init]['join_token']['stdout']}} /tmp/install.sh"
+    # - service:
+    #     name: k3s
+    #     state: restarted
+    #     enabled: yes
+
+#---------------------------------------------------------------
+

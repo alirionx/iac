@@ -19,3 +19,64 @@
         dest: /etc/hosts
   
 #---------------------------------------------------------------
+- name: Install GlusterFS
+  hosts: stack
+  tasks:
+    - name: Create local gluster data folder
+      file:
+        path: "{{gluster_dir}}"
+        state: directory
+    - name: Create local gluster mount folder
+      file:
+        path: "{{gluster_mnt}}"
+        state: directory
+
+    - name: Install required packages
+      apt:
+        pkg:
+          - glusterfs-server
+          - glusterfs-client
+    - name: Start Gluster Daemon
+      service:
+        name: glusterd
+        state: started
+        enabled: yes
+
+#----------------------------------
+- name: Configure Gluster FS
+  hosts: kube_init
+  tasks:
+    - name: Register Gluster nodes
+      shell: "gluster peer probe {{item}}"
+      # debug: 
+      #   msg: "{{groups['stack']|length}}"
+      when: item != kube_init
+      with_items: "{{ groups['stack'] }}"
+
+    - name: Check if volume already exists
+      shell: gluster volume list
+      register: vol_list
+
+    - name: Register Gluster Data Volume
+      # debug: 
+      #   msg: "gluster volume create {{gluster_vol}} replica {{groups['stack']|length}} {{ groups['stack'] | join(':'+gluster_dir+' ') }}:{{gluster_dir}}"
+      shell: "gluster volume create {{gluster_vol}} replica {{groups['stack']|length}} {{ groups['stack'] | join(':'+gluster_dir+' ') }}:{{gluster_dir}} force"
+      when: gluster_vol not in vol_list.stdout
+
+    - name: Start Data Volume
+      shell: "gluster volume start {{gluster_vol}}"
+      ignore_errors: True
+
+#----------------------------------
+- name: Configure Gluster Mount Points
+  hosts: stack
+  tasks:
+    # - name: Mount Data Volume
+    #   shell: "mount -t glusterfs {{inventory_hostname}}:/{{gluster_vol}} {{gluster_mnt}}"
+    - mount:
+        path: "{{gluster_mnt}}"
+        src: "{{inventory_hostname}}:/{{gluster_vol}}"
+        fstype: glusterfs
+        state: mounted
+
+#---------------------------------------------------------------

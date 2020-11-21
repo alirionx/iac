@@ -1,0 +1,14 @@
+---
+mirrors:
+  customreg:
+    endpoint:
+      - "{{k3sregistry_endpoint}}"
+configs:
+  customreg:
+    # auth:
+    #   username: xxxxxx # this is the registry username
+    #   password: xxxxxx # this is the registry password
+    tls:
+      cert_file: "{{rancher_conf_path}}/{{kube_image_certs['cert_file']}}"
+      key_file: "{{rancher_conf_path}}/{{kube_image_certs['key_file']}}"
+      ca_file: "{{rancher_conf_path}}/{{kube_image_certs['ca_file']}}"

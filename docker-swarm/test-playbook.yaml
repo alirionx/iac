@@ -1,0 +1,20 @@
+
+# - name: Test
+#   hosts: controller
+#   tasks:
+#     - name: test 
+#       debug: 
+#         msg: "{{ lookup('template', './config_templates/hosts.template') }}"
+#       with_items: "{{ groups['stack'] }}"
+
+- name: Uninstall K3S - managers
+  hosts: managers
+  tasks:
+    - name: use rancher uninstall script
+      shell: /usr/local/bin/k3s-uninstall.sh
+
+- name: Uninstall K3S - workers
+  hosts: workers
+  tasks:
+    - name: use rancher uninstall script
+      shell: /usr/local/bin/k3s-agent-uninstall.sh

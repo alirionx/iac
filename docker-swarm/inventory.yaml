@@ -1,7 +1,58 @@
 all:
+  vars:
+    ansible_ssh_private_key_file: ./inventory.pem
+    ansible_user: ubuntu
+
+    dev_domain: iac.local
+    os_version: focal
+    gluster_dir: "/gluster/data"
+    gluster_mnt: "/gluster/mnt"
+    gluster_vol: data0
+    docker_variant: docker-ce
+    docker_compose_version: "1.27.4"
+    helm_cli_version: "3.4.1"
+    kube_init: manager1 
+    kube_cidr: "10.10.0.0/16"
+    kube_image_dir: /var/lib/rancher/k3s/agent/images/
+    kube_airgap_image: k3s-airgap-images-amd64.tar
+    rancher_conf_path: "/etc/rancher/k3s/"
+    rancher_fqdn: "rancher.app.scape.lab"
+    kube_image_certs:
+      ca_file: ca.crt
+      cert_file: k3sregistry.app-scape.lab.crt
+      key_file: k3sregistry.app-scape.lab.key
+    k3sregistry_endpoint: "https://192.168.10.138:5000"
+    
+    docker_dependencies:
+      - apt-transport-https
+      - ca-certificates 
+      - curl
+      - gnupg-agent
+      - software-properties-common
+      
   hosts:
     controller:
+      ansible_host: controller 
+      ip: 192.168.10.61
+    manager1:
+      ansible_host: manager1
+      ip: 192.168.10.65
+    # manager2:
+    #   ansible_host: manager2 
+    #   ip: 192.168.10.66
+    worker1:
+      ansible_host: worker1 
+      ip: 192.168.10.67
+    worker2:
+      ansible_host: worker2
+      ip: 192.168.10.68
+    # worker3:
+    #   ansible_host: worker3
+    #   ip: 192.168.10.69
   children:
+    kube_init:
+      hosts:
+        manager1:
     managers:
       hosts:
         manager1:
@@ -10,54 +61,14 @@ all:
       hosts:
         worker1:
         worker2:
-        #worker3:
+        # worker3:
     stack:
       hosts:
         manager1:
-        #manager2:
+        # manager2:
         worker1:
         worker2:
-        #worker3:
-    swarm_init:
-      hosts:
-        manager1: # Achtung is doppelt
+        # worker3:
 
-  vars:
-    ansible_ssh_private_key_file: ./inventory.pem
-    ansible_user: ubuntu
-
-    dev_domain: iac.local
-    os_version: focal
-    docker_variant: docker-ce
-    swarm_init: manager1 # Achtung is doppelt
-    swarm_port: "2377"
-
-    hostlist:
-      manager1:
-       - ip: 192.168.10.65
-         hostname: manager1
-         os: focal
-      manager2:
-       - ip: "192.168.10.66"
-         hostname: manager2
-         os: focal
-      worker1:
-       - ip: 192.168.10.67
-         hostname: worker1
-         os: focal
-      worker2:
-       - ip: 192.168.10.68
-         hostname: worker2
-         os: focal
-      worker3:
-       - ip: 192.168.10.69
-         hostname: worker3
-         os: focal
-
-    docker_dependencies:
-      - apt-transport-https
-      - ca-certificates 
-      - curl
-      - gnupg-agent
-      - software-properties-common
+  
 
