@@ -1,0 +1,36 @@
+- name: "Get user Input for tasks to execute"
+  hosts: kube_init
+  vars_prompt: 
+    - name: rancher_rm
+      prompt: Remove Rancher Installation from Cluster?
+      private: no
+      default: "no"
+    - name: k3s_rm
+      prompt: Remove Rancher Installation from Cluster?
+      private: no
+      default: "no"
+
+  tasks:
+  - set_fact: 
+      rancher_rm: "{{rancher_rm}}"
+      k3s_rm: "{{k3s_rm}}"
+
+
+
+- name: "Reset Kube Stack: Kube Agents"
+  hosts: workers
+  vars:
+  tasks:
+  - name: Uninstall K3S Anget
+    shell: '/usr/local/bin/k3s-agent-uninstall.sh'
+    when: "hostvars[kube_init]['k3s_rm']"
+    ignore_errors: yes
+
+- name: "Reset Kube Stack: Kube Managers"
+  hosts: managers
+  vars:
+  tasks:
+  - name: Uninstall K3S Anget
+    shell: '/usr/local/bin/k3s-uninstall.sh'
+    when: "hostvars[kube_init]['k3s_rm']"
+    ignore_errors: yes

@@ -7,11 +7,12 @@
   hosts: kube_init
   tasks:
   - name: Download and install helm  client
-    url: "https://get.helm.sh/helm-v{{helm_cli_version}}-linux-amd64.tar.gz"
-    dest: "/tmp/helm-v{{helm_cli_version}}-linux-amd64.tar.gz"
+    get_url:
+      url: "https://get.helm.sh/helm-v{{helm_cli_version}}-linux-amd64.tar.gz"
+      dest: "/tmp/helm-v{{helm_cli_version}}-linux-amd64.tar.gz"
   - unarchive:
-    src: "/tmp/helm-v{{helm_cli_version}}-linux-amd64.tar.gz"
-    dest: /tmp"
+      src: "/tmp/helm-v{{helm_cli_version}}-linux-amd64.tar.gz"
+      dest: /tmp
   - command: mv /tmp/linux-amd64/helm /usr/local/bin/
 
   # kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.0.4/cert-manager.crds.yaml
