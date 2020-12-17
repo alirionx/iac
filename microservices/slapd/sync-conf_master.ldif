@@ -1,0 +1,31 @@
+# activate Sync-Modul 
+dn: cn=module{0},cn=config
+changetype: modify
+add: olcModuleLoad
+olcModuleLoad: syncprov.la
+
+# add replication sttribs to index
+dn: olcDatabase={1}mdb,cn=config
+changetype: modify
+add: olcDbIndex
+olcDbIndex: entryUUID,entryCSN eq
+
+# access rights for sync account
+dn: olcDatabase={0}config,cn=config
+changetype: modify
+add: olcAccess
+olcAccess: to * by dn.base="cn=admin,dc=vdi,dc=dev" read by * +0 break
+
+# activate sync-Provider for LDAP-Database 
+dn: olcOverlay=syncprov,olcDatabase={1}mdb,cn=config
+changetype: add
+objectClass: olcOverlayConfig
+objectClass: olcSyncProvConfig
+olcOverlay: syncprov
+
+# activate sync-Provider for LDAP-Configuration
+dn: olcOverlay=syncprov,olcDatabase={0}config,cn=config
+changetype: add
+objectClass: olcOverlayConfig
+objectClass: olcSyncProvConfig
+olcOverlay: syncprov

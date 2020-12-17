@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: openldap
+  labels:
+    app: openldap
+spec:
+  ports:
+  - port: 389
+    name: slapd
+  clusterIP: None
+  selector:
+    app: slapd
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: slapd
+spec:
+  serviceName: "openldap"
+  replicas: 2
+  selector:
+    matchLabels:
+      app: openldap
+  template:
+    metadata:
+      labels:
+        app: slapd
+    spec:
+      containers:
+      - name: slapd
+        image: bitnami/openldap
+        env:
+        - name: LDAP_ADMIN_USERNAME
+          value: "admin"
+        - name: LDAP_ADMIN_PASSWORD
+          value: "adminadmin"
+        ports:
+        - containerPort: 1389
+          name: slapd
+        volumeMounts:
+        - name: openldap_data
+          mountPath: /bitnami/openldap
+  volumeClaimTemplates:
+  - metadata:
+      name: openldap_data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 512Mi

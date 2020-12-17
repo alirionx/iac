@@ -1,0 +1,42 @@
+
+#Apply via: ansible-playbook -i ./inventory.yaml --become 03_docker-registry.yaml
+
+#---------------------------------------------------------------
+
+- name: Initialize docker registry on manager node
+  hosts: docker_reg
+  tasks:
+    - block:
+      - name: create target dir for registry volume
+        file: 
+          path: "{{docker_registry_vol_path}}"
+          state: directory
+
+      - set_fact:
+          docker_reg_cmd: "{{ lookup('template', './cmd_templates/docker_registry.j2') }}"
+      
+      - shell: "docker ps -a"
+        register: container_list
+
+      - name: Start registry container
+        # debug:
+        #   msg: "{{docker_reg_cmd}}"
+        shell: "{{docker_reg_cmd}}"
+        when: "docker_registry_name not in container_list.stdout"
+
+#-------------------------
+
+- name: Add registry trust to stack hosts 
+  hosts: stack
+  tasks: 
+  - name: Copy Jinja Template for reg trust
+    template:
+      src: "./config_templates/daemon.json.j2"
+      dest: "/etc/docker/daemon.json"
+  - service:
+      name: docker
+      state: restarted 
+
+
+
+      

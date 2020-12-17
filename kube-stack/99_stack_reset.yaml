@@ -2,11 +2,23 @@
   hosts: kube_init
   vars_prompt: 
     - name: rancher_rm
-      prompt: Remove Rancher Installation from Cluster?
+      prompt: Remove Rancher Installation from Cluster (yes/no)?
       private: no
       default: "no"
     - name: k3s_rm
-      prompt: Remove Rancher Installation from Cluster?
+      prompt: Remove K3S from stack (yes/no)?
+      private: no
+      default: "no"
+    - name: docker_reg_rm
+      prompt: Remove Docker Registry (yes/no)?
+      private: no
+      default: "no"
+    - name: docker_rm
+      prompt: Remove Docker on all stack hosts (yes/no)?
+      private: no
+      default: "no"
+    - name: gluster_rm
+      prompt: Remove GlusterFS config on all stack hosts (yes/no)?
       private: no
       default: "no"
 
@@ -14,8 +26,14 @@
   - set_fact: 
       rancher_rm: "{{rancher_rm}}"
       k3s_rm: "{{k3s_rm}}"
+      docker_reg_rm: "{{docker_reg_rm}}"
+      docker_rm: "{{docker_rm}}"
+      gluster_rm: "{{gluster_rm}}"
 
-
+  - name: Uninstall rancher on K3S Cluster
+    shell: "helm uninstall rancher rancher-latest/rancher --namespace cattle-system"
+    ignore_errors: yes
+    when: "rancher_rm == 'yes'"
 
 - name: "Reset Kube Stack: Kube Agents"
   hosts: workers
@@ -34,3 +52,45 @@
     shell: '/usr/local/bin/k3s-uninstall.sh'
     when: "hostvars[kube_init]['k3s_rm']"
     ignore_errors: yes
+
+- name: "Remove Docker Registry"
+  hosts: docker_reg
+  tasks:
+  - block:
+    - shell: "docker kill {{docker_registry_name}}" 
+    - shell: "docker rm {{docker_registry_name}}" 
+    when: "hostvars[kube_init]['docker_reg_rm']"
+
+- name: "Remove Docker on all stack hosts"
+  hosts: stack
+  vars:
+  tasks:
+  - block:
+    - file:
+        path: "/usr/local/bin/docker-compose"
+        state: absent
+    - name: "Uninstall {{docker_variant}}"
+      apt:
+        pkg:
+         - "{{docker_variant}}"
+         - docker-ce-cli
+        state: absent
+        autoremove: yes
+    when: "hostvars[kube_init]['docker_rm']"
+
+- name: "Remove GlusterFS config on all stack hosts"
+  hosts: stack
+  vars:
+  tasks:
+  - block:
+    - service:
+        name: glusterd
+        stopped: yes
+    - name: "Uninstall glusterd"
+      apt:
+        pkg:
+         - glusterfs-client
+         - glusterfs-server
+        state: absent
+        autoremove: yes
+    when: "hostvars[kube_init]['gluster_rm']"

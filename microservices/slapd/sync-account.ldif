@@ -1,0 +1,5 @@
+dn: cn=syncagent,dc=vdi,dc=dev
+cn: syncagent
+objectClass: top
+objectClass: person
+sn: syncagent

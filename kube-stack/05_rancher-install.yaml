@@ -1,0 +1,62 @@
+
+#Apply via: ansible-playbook -i ./inventory.yaml --become 05_rancher-install.yaml
+
+#---------------------------------------------------------------
+
+- name: Prepare Rancher Installation on K3s Cluster
+  hosts: kube_init
+  tasks:
+  - name: Download and install helm  client
+    block:
+    - get_url:
+        url: "https://get.helm.sh/helm-v{{helm_cli_version}}-linux-amd64.tar.gz"
+        dest: "/tmp/helm-v{{helm_cli_version}}-linux-amd64.tar.gz"
+    - unarchive:
+        src: "/tmp/helm-v{{helm_cli_version}}-linux-amd64.tar.gz"
+        dest: /tmp
+    - shell: mv /tmp/linux-amd64/helm /usr/local/bin/
+  
+
+  - name: Install Cert-Manager
+    block:
+    - shell: "kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.0.4/cert-manager.crds.yaml"
+    - shell: "kubectl create namespace cert-manager"
+      ignore_errors: yes
+    - shell: "helm repo add jetstack https://charts.jetstack.io"
+    - shell: "helm repo update"
+    - shell: "helm install cert-manager jetstack/cert-manager --namespace cert-manager --version v1.0.4"
+      ignore_errors: yes
+
+  - name: Install Rancher
+    block:
+    - shell: "helm repo add rancher-stable https://releases.rancher.com/server-charts/stable"
+    - shell: "kubectl create namespace cattle-system"
+      ignore_errors: yes
+
+    # - shell: "helm install rancher rancher-stable/rancher --namespace cattle-system --set hostname={{rancher_fqdn}} --set ingress.tls.source=secret --set privateCA=true"
+    - shell: "helm install rancher rancher-stable/rancher --namespace cattle-system --set hostname={{rancher_fqdn}}"
+      ignore_errors: yes
+    - command: "helm install rancher rancher-latest/rancher --namespace cattle-system --set hostname={{rancher_fqdn}} --replace"
+    #   ignore_errors: yes
+    # - debug: 
+    #     msg: "helm install rancher rancher-latest/rancher --namespace cattle-system --set hostname={{rancher_fqdn}} --replace"
+        #async: 60
+        #poll: 0
+  
+
+  #  kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.0.4/cert-manager.crds.yaml
+  #  kubectl create namespace cert-manager
+  # helm repo add jetstack https://charts.jetstack.io
+  # helm repo update
+  # helm install cert-manager jetstack/cert-manager --namespace cert-manager --version v1.0.4
+  # 
+  # helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
+  # kubectl create namespace cattle-system
+  # "helm install rancher rancher-latest/rancher --namespace cattle-system --set hostname={{rancher_fqdn}}"
+
+  
+
+
+  
+
+#---------------------------------------------------------------

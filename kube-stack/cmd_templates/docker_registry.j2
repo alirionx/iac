@@ -1,0 +1,6 @@
+docker run -d \
+  -p {{docker_registry_port}}:5000 \
+  --restart=always \
+  --name {{docker_registry_name}} \
+  -v {{docker_registry_vol_path}}:/var/lib/registry \
+  registry:2

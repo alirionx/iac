@@ -1,0 +1,43 @@
+# activate Sync-Modul 
+dn: cn=module{0},cn=config
+changetype: modify
+add: olcModuleLoad
+olcModuleLoad: syncprov.la
+
+# add replication sttribs to index
+dn: olcDatabase={1}mdb,cn=config
+changetype: modify
+add: olcDbIndex
+olcDbIndex: entryUUID,entryCSN eq
+
+# activate database replication
+dn: olcDatabase={1}mdb,cn=config
+changetype: modify
+add: olcSyncrepl
+olcSyncrepl: {0}rid=2 provider=ldap://{{LDAP_MASTER}}
+  type=refreshOnly
+  bindmethod=simple
+  binddn="cn=syncagent,dc=vdi,dc=dev"
+  credentials={{LDAP_PWD}}
+  interval="00:00:03:00"
+  retry="30 10 300 +"
+  timeout=1
+  tls_reqcert=never
+  schemachecking=off
+  searchbase="dc=vdi,dc=dev"
+
+# Konfigurationsreplikation aktivieren
+dn: olcDatabase={0}config,cn=config
+changetype: modify
+add: olcSyncrepl
+olcSyncrepl: {0}rid=1 provider=ldap://{{LDAP_MASTER}}
+  type=refreshOnly
+  bindmethod=simple
+  binddn="cn=admin,dc=vdi,dc=dev"
+  credentials={{LDAP_PWD}}
+  interval="00:00:03:00"
+  retry="30 10 300 +"
+  timeout=1
+  tls_reqcert=never
+  schemachecking=off
+  searchbase="cn=config"

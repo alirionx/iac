@@ -10,13 +10,17 @@ all:
     gluster_vol: data0
     docker_variant: docker-ce
     docker_compose_version: "1.27.4"
+    docker_registry_host: manager1
+    docker_registry_name: stack_registry
+    docker_registry_vol_path: "/gluster/mnt/docker_registry"
+    docker_registry_port: 5000
     helm_cli_version: "3.4.1"
     kube_init: manager1 
     kube_cidr: "10.10.0.0/16"
     kube_image_dir: /var/lib/rancher/k3s/agent/images/
     kube_airgap_image: k3s-airgap-images-amd64.tar
     rancher_conf_path: "/etc/rancher/k3s/"
-    rancher_fqdn: "rancher.app.scape.lab"
+    rancher_fqdn: "k3srancher.app-scape.lab"
     kube_image_certs:
       ca_file: ca.crt
       cert_file: k3sregistry.app-scape.lab.crt
@@ -51,6 +55,9 @@ all:
     #   ip: 192.168.10.69
   children:
     kube_init:
+      hosts:
+        manager1:
+    docker_reg:
       hosts:
         manager1:
     managers:
