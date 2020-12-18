@@ -2,6 +2,7 @@
 
 if ! slapcat | grep vdi.dev || $REINIT == 'yes'; then
   debconf-set-selections /root/slapd.debconf
+  echo -e "slapd slapd/move_old_database boolean true" |debconf-set-selections
   DEBIAN_FRONTEND=noninteractive dpkg-reconfigure slapd
 fi
 
@@ -14,7 +15,7 @@ fi
 #   DEBIAN_FRONTEND=noninteractive dpkg-reconfigure slapd
 # fi
 
-/usr/sbin/slapd -h "ldap:/// ldapi:///" -g openldap -u openldap -F /etc/ldap/slapd.d
+#/usr/sbin/slapd -h "ldap:/// ldapi:///" -g openldap -u openldap -F /etc/ldap/slapd.d
 
 # if [ $ROLE == 'master' ]; then
 #   ldapmodify -Y EXTERNAL -H ldapi:/// -f /root/sync-conf_master.ldif
@@ -26,6 +27,7 @@ fi
 #   ldapmodify -Y EXTERNAL -H ldapi:/// -f /root/sync-conf_slave.ldif
 # fi
 
+service slapd start
 
 #LAZY
 sleep infinity

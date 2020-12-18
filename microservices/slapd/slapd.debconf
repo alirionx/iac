@@ -2,6 +2,6 @@ slapd slapd/password2 password admin
 slapd slapd/password1 password admin
 slapd slapd/domain string vdi.dev
 slapd slapd/purge_database boolean true
-slapd slapd/move_old_database boolean false
+slapd slapd/move_old_database boolean true
 slapd slapd/no_configuration boolean false
 slapd shared/organization string vdi.dev

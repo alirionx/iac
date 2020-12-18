@@ -4,14 +4,19 @@ COPY ./slapd.debconf /root/
 RUN apt update && \
     DEBIAN_FRONTEND=noninteractive apt install -y slapd ldap-utils
 
-# COPY sync-conf_master.ldif /root/
-# COPY sync-conf_slave.ldif /root/
+RUN debconf-set-selections /root/slapd.debconf && \
+    DEBIAN_FRONTEND=noninteractive dpkg-reconfigure slapd
 
-COPY memof-mod_apply.ldif /root/
-COPY memof-mod_enable.ldif /root/
+#-Howto dazu: https://www.xinux.net/index.php/Openldap_posix_memberof----
+COPY memberof_config.ldif /root/
+COPY refint1.ldif /root/
+COPY refint2.ldif /root/
+
 RUN /usr/sbin/slapd -h "ldap:/// ldapi:///" -g openldap -u openldap -F /etc/ldap/slapd.d && \
-    ldapmodify -Q -Y EXTERNAL -H ldapi:/// -f /root/memof-mod_enable.ldif && \
-    ldapadd -Q -Y EXTERNAL -H ldapi:/// -f /root/memof-mod_apply.ldif
+    ldapadd -Q -Y EXTERNAL -H ldapi:/// -f /root/memberof_config.ldif && \
+    ldapmodify -Q -Y EXTERNAL -H ldapi:/// -f /root/refint1.ldif && \
+    ldapadd -Q -Y EXTERNAL -H ldapi:/// -f /root/refint2.ldif
+#-------------------------------------------------------------------------
 
 COPY start.sh /root/start.sh
 RUN chmod +x /root/start.sh

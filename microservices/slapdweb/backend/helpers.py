@@ -9,6 +9,15 @@ slapdUsrPwd = "admin"
 
 
 #---------------------------------------------------------------------------------
+
+import json
+from flask import Response
+#------------------------------
+from ldap3 import Server, Connection, ALL 
+if slapdMode == "ldaps": uSsl = True
+else: uSsl = False
+
+#---------------------------------------------------------------------------------
 class helpers:
   #-Fixed Class Vars---------------------------------------------
 
@@ -19,20 +28,24 @@ class helpers:
 
   #-The Methods--------------------------------------------------
   def ldap_conn_create(self ):
-    from ldap3 import Server, Connection, ALL
-    
-    if slapdMode == "ldaps": uSsl = True
-    else: uSsl = False
-    
     conSrv = Server(host=slapdHost, port=slapdPort, use_ssl=uSsl, get_info=ALL)
     try:
       curCon = Connection(conSrv, slapdUsrDn, slapdUsrPwd, auto_bind=True)
       return curCon
     except Exception as e:
-      print(str(e))
+      print('Error: ' + str(e))
       return False
 
     #print(conSrv.info)
+
+  #-------------------------------
+  def obj_to_json_http(self, dataObj, status=200):
+    resJson = json.dumps(dataObj, indent=2)
+    resp = Response(
+      response=resJson,
+      status=status,
+      mimetype="application/json")
+    return resp
 
 #--------------------------------------------------------------------------------
 
@@ -47,6 +60,7 @@ class ldaptool:
       print("Fail to establish ldap connection ")
     else:
       print('*New ldaptools object created')
+
 
   #-The Methods--------------------------------------------------
   def app_pre_config(self ):
@@ -71,26 +85,71 @@ class ldaptool:
         )
 
     #---------------------------
+    grpList = ['vdi', 'admins']
     grpResList = []
     self.ldapCon.search(slapdBaseDn, '(objectclass=groupOfNames)')
     ldapEntries = self.ldapCon.entries
     
     for ldapEntrie in ldapEntries:
       grpResList.append(ldapEntrie.entry_dn)
-    print(grpResList)
-    if 'cn=vdi,ou=groups,'+slapdBaseDn not in grpResList:
-      self.ldapCon.add(
-        'cn=vdi,ou=groups,'+slapdBaseDn, 
-        'groupOfNames', {
-          'description': 'Group for VDI users', 
-          'cn': 'vdi',
-          'member': slapdUsrDn,
-        }
-      )
+    #print(grpResList)
+
+    for grp in grpList:
+      if 'cn='+grp+',ou=groups,'+slapdBaseDn not in grpResList:
+        self.ldapCon.add(
+          'cn='+grp+',ou=groups,'+slapdBaseDn, 
+          'groupOfNames', {
+            'description': 'Group for %s users' %grp, 
+            'cn': grp,
+            'member': slapdUsrDn,
+          }
+        )
 
   #------------------------------------------------
   def check_user(self, userDn ):
-    self.ldapCon.search(userDn, '(objectclass=*)', attributes=["*"])
-    ldapEntrie = self.ldapCon.entries[0]
-    #res = ldapEntrie.entry_attributes_as_dict
-    print(ldapEntrie.entry_to_json())
+    
+    self.ldapCon.search(userDn, '(objectclass=inetOrgPerson)', attributes=["*"])
+    try:
+      ldapEntrie = self.ldapCon.entries[0]
+    except Exception as e:
+      print('Error: '+ str(e))
+      return False
+
+    resObj = ldapEntrie.entry_attributes_as_dict
+    return resObj
+
+  #------------------------------------------------
+  def vdi_users_get(self ):
+    
+    self.ldapCon.search('ou=users,'+slapdBaseDn, '(&(objectclass=inetOrgPerson)(memberOf=cn=vdi,ou=groups,dc=vdi,dc=dev))', attributes=["*"])
+    ldapEntrie = self.ldapCon.entries
+
+    resObj = []
+    for res in ldapEntrie:
+      resPartObj = res.entry_attributes_as_dict
+      try: del resPartObj["userPassword"]
+      except: inf = "no PWD"
+      tmpObj = {}
+      for key,val in resPartObj.items():
+        if type(val) == list and len(val) == 1:
+          tmpObj[key] = val[0]
+        else:
+          tmpObj[key] = val
+
+      resObj.append(tmpObj)
+   
+    #print(resObj)
+    return resObj
+
+  #------------------------------------------------
+  def ldap_auth(self, uid, pwd ):
+    userDN = 'uid='+uid+',ou=users,'+slapdBaseDn
+    conSrv = Server(host=slapdHost, port=slapdPort, use_ssl=uSsl, get_info=ALL)
+    try:
+      curCon = Connection(conSrv, userDN, pwd)
+      print(userDN)
+      return True
+    except Exception as e:
+      print('Error: ' + str(e))
+      return False
+  
