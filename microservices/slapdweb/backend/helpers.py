@@ -6,7 +6,7 @@ slapdMode = "ldap" # could be ldaps
 slapdBaseDn = "dc=vdi,dc=dev"
 slapdUsrDn = "cn=admin,dc=vdi,dc=dev" 
 slapdUsrPwd = "admin" 
-
+ 
 
 #---------------------------------------------------------------------------------
 
