@@ -48,8 +48,27 @@ def hello_app():
   return 'Hello from the SlapdWebApp API!'
 
 #--------------------------
-@app.route('/auth', methods=['POST'])
-def app_auth():
+@app.route('/api/auth/check', methods=['GET'])
+def app_auth_check():
+  if "uid" not in session:
+    resObj = {
+      "status": 401,
+      "msg": "Not logged in"
+    }
+    httpRes = myHelper.obj_to_json_http(resObj, 401)
+  else:
+    resObj = {
+      "status": 200,
+      "msg": "Logged in",
+      "uid": session["uid"]
+    }
+    httpRes = myHelper.obj_to_json_http(resObj, 200)
+  
+  return httpRes
+  
+
+@app.route('/api/auth/login', methods=['POST'])
+def app_auth_login():
   try:
     postIn = request.get_json()
     uid = postIn["uid"]
@@ -57,18 +76,18 @@ def app_auth():
   except Exception as e:
     print('Error: ' + str(e))
     resObj = {
-      "status": "400 Bad Request",
+      "status": 400,
       "msg": "Invalid input format. Post (uid and pwd (key, val)) in JSON!"
     }
     httpRes = myHelper.obj_to_json_http(resObj, 400)
     return httpRes
 
   #jsonStr = myHelper.obj_to_json_http(postIn)
-
   authRes = myLdapTool.ldap_auth(uid, pwd)
+  #authRes = True
   if not authRes:
     resObj = {
-      "status": "401 Unauthorized",
+      "status": 401,
       "msg": "Invalid user and/or password, login failed"
     }
     httpRes = myHelper.obj_to_json_http(resObj, 401)
@@ -76,15 +95,16 @@ def app_auth():
   else:
     session["uid"] = uid
     resObj = {
-      "status": "200 Ok",
+      "uid": uid,
+      "status": 200,
       "msg": "User "+uid+" successfully logged in."
     }
     httpRes = myHelper.obj_to_json_http(resObj)
     return httpRes
   
 #--------------------------
-@app.route('/api/logout', methods=['POST'])
-def api_logout():
+@app.route('/api/auth/logout', methods=['POST'])
+def api_auth_logout():
   chk = True
   uid = str
   try:
@@ -93,16 +113,21 @@ def api_logout():
   except:
     chk = False
   
-  if chk and uid == session["uid"]:
+  tmpUsr = None
+  if "uid" in session:
+    tmpUsr = session["uid"]
+  
+  if chk and uid == tmpUsr:
     session.pop('uid', None)
     resObj = {
-      "status": "200 Ok",
-      "msg": "Logout successfully"
+      "status": 200,
+      "msg": "Logout successfully",
+      "uid": tmpUsr
     }
     httpRes = myHelper.obj_to_json_http(resObj, 200)
   else:
     resObj = {
-      "status": "400 Bad Request",
+      "status": 400,
       "msg": "Fail to logout"
     }
     httpRes = myHelper.obj_to_json_http(resObj, 400)
@@ -114,11 +139,11 @@ def api_logout():
 def api_test_userinfo(dn):
 
   resObj = myLdapTool.check_user(dn)
-
+  #print(resObj)
   if not resObj:
     resObj = {
       "msg": "user dn not found",
-      "status": "404 Not Found"
+      "status": 404
     }
   
   httpRes = myHelper.obj_to_json_http(resObj)
@@ -140,9 +165,9 @@ def check_ldap_ready():
 
 @app.before_request
 def check_access():
-  if request.path.startswith('/api') and "uid" not in session:
+  if not request.path.startswith('/api/auth') and "uid" not in session:
     resObj = {
-      "status": "401 Unauthorized",
+      "status": 401,
       "msg": "not logged in"
     }
     httpRes = myHelper.obj_to_json_http(resObj, 401)

@@ -18,6 +18,8 @@ RUN /usr/sbin/slapd -h "ldap:/// ldapi:///" -g openldap -u openldap -F /etc/ldap
     ldapadd -Q -Y EXTERNAL -H ldapi:/// -f /root/refint2.ldif
 #-------------------------------------------------------------------------
 
+RUN echo "TLS_REQCERT never" >> /etc/ldap/ldap.conf
+
 COPY start.sh /root/start.sh
 RUN chmod +x /root/start.sh
 

@@ -27,7 +27,8 @@ fi
 #   ldapmodify -Y EXTERNAL -H ldapi:/// -f /root/sync-conf_slave.ldif
 # fi
 
-service slapd start
+/usr/sbin/slapd -h "ldap:/// ldapi:///" -g openldap -u openldap -F /etc/ldap/slapd.d -d 0
 
 #LAZY
-sleep infinity
+#service slapd start
+#sleep infinity
