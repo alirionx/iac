@@ -145,7 +145,6 @@ def api_test_userinfo(dn):
       "msg": "user dn not found",
       "status": 404
     }
-  
   httpRes = myHelper.obj_to_json_http(resObj)
   return httpRes
 
@@ -153,10 +152,117 @@ def api_test_userinfo(dn):
 @app.route('/api/users', methods=['GET'])
 def api_users_get():
 
-  resObj = myLdapTool.vdi_users_get()
+  dataObj = myLdapTool.vdi_users_get()
+  if not dataObj:
+    resObj = {
+      "msg": "something went wrong",
+      "status": 400
+    }
+  else:
+    resObj = {
+      "data": dataObj,
+      "status": 200
+    }
   httpRes = myHelper.obj_to_json_http(resObj)
   return httpRes
-   
+
+#--------------------------
+@app.route('/api/user/create', methods=['POST'])
+def api_user_create():
+  try:
+    postIn = request.get_json()
+  except:
+    chk = False
+
+  res = myLdapTool.vdi_user_create(postIn)
+  if not res:
+    resObj = {
+      "msg": "something went wrong",
+      "status": 400
+    }
+  else:
+    resObj = {
+      "msg": "user created successfully",
+      "status": 200
+    }
+    
+  httpRes = myHelper.obj_to_json_http(resObj)
+  return httpRes
+
+#--------------------------
+@app.route('/api/user/edit', methods=['POST'])
+def api_user_edit():
+  try:
+    postIn = request.get_json()
+    uid = postIn["uid"]
+  except:
+    chk = False
+
+  res = myLdapTool.vdi_user_edit(postIn)
+  if not res:
+    resObj = {
+      "msg": "something went wrong",
+      "status": 400
+    }
+  else:
+    resObj = {
+      "msg": "user data changed successfully",
+      "status": 200
+    }
+
+  httpRes = myHelper.obj_to_json_http(resObj)
+  return httpRes
+
+
+#--------------------------
+@app.route('/api/user/<uid>', methods=['GET'])
+def api_user_get(uid):
+  
+  dataObj = myLdapTool.vdi_user_get(uid)
+  if not dataObj:
+    resObj = {
+      "msg": "user dn not found",
+      "status": 404
+    }
+  else:
+    resObj = {
+      "data": dataObj,
+      "status": 200
+    }
+  httpRes = myHelper.obj_to_json_http(resObj)
+  return httpRes
+
+#--------------------------
+@app.route('/api/user/delete', methods=['POST'])
+def api_user_delete():
+  chk = True
+  try:
+    postIn = request.get_json()
+    uid = postIn["uid"]
+  except:
+    chk = False
+  
+  if chk:
+    chk = myLdapTool.vdi_users_delete(uid)
+
+  if chk:
+    resObj = {
+      "msg": "user deleted",
+      "uid": uid,
+      "status": 200
+    }
+    httpRes = myHelper.obj_to_json_http(resObj)
+    return httpRes
+  else:
+    resObj = {
+      "msg": "user dn not found",
+      "status": 404
+    }
+    httpRes = myHelper.obj_to_json_http(resObj)
+    return httpRes
+
+
+
 
 #-Pre-Handlers-----------------------------------------------------
 @app.before_first_request
