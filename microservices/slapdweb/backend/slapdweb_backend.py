@@ -55,15 +55,16 @@ def app_auth_check():
       "status": 401,
       "msg": "Not logged in"
     }
-    httpRes = myHelper.obj_to_json_http(resObj, 401)
+    hhttpCode = 401
   else:
     resObj = {
       "status": 200,
       "msg": "Logged in",
       "uid": session["uid"]
     }
-    httpRes = myHelper.obj_to_json_http(resObj, 200)
-  
+    httpCode = 200
+
+  httpRes = myHelper.obj_to_json_http(resObj, 200)
   return httpRes
   
 
@@ -90,8 +91,7 @@ def app_auth_login():
       "status": 401,
       "msg": "Invalid user and/or password, login failed"
     }
-    httpRes = myHelper.obj_to_json_http(resObj, 401)
-    return httpRes
+    httpCode = 401
   else:
     session["uid"] = uid
     resObj = {
@@ -99,8 +99,10 @@ def app_auth_login():
       "status": 200,
       "msg": "User "+uid+" successfully logged in."
     }
-    httpRes = myHelper.obj_to_json_http(resObj)
-    return httpRes
+    httpCode = 200
+
+  httpRes = myHelper.obj_to_json_http(resObj, httpCode)
+  return httpRes
   
 #--------------------------
 @app.route('/api/auth/logout', methods=['POST'])
@@ -124,14 +126,15 @@ def api_auth_logout():
       "msg": "Logout successfully",
       "uid": tmpUsr
     }
-    httpRes = myHelper.obj_to_json_http(resObj, 200)
+    httpCode = 200
   else:
     resObj = {
       "status": 400,
       "msg": "Fail to logout"
     }
-    httpRes = myHelper.obj_to_json_http(resObj, 400)
-  
+    httpCode = 400
+
+  httpRes = myHelper.obj_to_json_http(resObj, httpCode)
   return httpRes
 
 #--------------------------
@@ -145,7 +148,11 @@ def api_test_userinfo(dn):
       "msg": "user dn not found",
       "status": 404
     }
-  httpRes = myHelper.obj_to_json_http(resObj)
+    httpCode = 404
+  else:
+    httpCode = 200
+  
+  httpRes = myHelper.obj_to_json_http(resObj, httpCode)
   return httpRes
 
 #--------------------------
@@ -158,12 +165,15 @@ def api_users_get():
       "msg": "something went wrong",
       "status": 400
     }
+    httpCode = 400
   else:
     resObj = {
       "data": dataObj,
       "status": 200
     }
-  httpRes = myHelper.obj_to_json_http(resObj)
+    httpCode = 200
+
+  httpRes = myHelper.obj_to_json_http(resObj, httpCode)
   return httpRes
 
 #--------------------------
@@ -180,13 +190,15 @@ def api_user_create():
       "msg": "something went wrong",
       "status": 400
     }
+    httpCode = 400
   else:
     resObj = {
       "msg": "user created successfully",
       "status": 200
     }
+    httpCode = 200
     
-  httpRes = myHelper.obj_to_json_http(resObj)
+  httpRes = myHelper.obj_to_json_http(resObj, httpCode)
   return httpRes
 
 #--------------------------
@@ -204,13 +216,41 @@ def api_user_edit():
       "msg": "something went wrong",
       "status": 400
     }
+    httpCode = 400
   else:
     resObj = {
       "msg": "user data changed successfully",
       "status": 200
     }
+    httpCode = 200
 
-  httpRes = myHelper.obj_to_json_http(resObj)
+  httpRes = myHelper.obj_to_json_http(resObj, httpCode)
+  return httpRes
+
+#--------------------------
+@app.route('/api/user/setpwd', methods=['POST'])
+def api_user_setpwd():
+  try:
+    postIn = request.get_json()
+  except Exception as e:
+    print('Error: '+ str(e))
+    chk = False
+
+  res = myLdapTool.vdi_user_setpwd(postIn)
+  if not res:
+    resObj = {
+      "msg": "something went wrong",
+      "status": 400
+    }
+    httpCode = 400
+  else:
+    resObj = {
+      "msg": "user password changed successfully",
+      "status": 200
+    }
+    httpCode = 200
+
+  httpRes = myHelper.obj_to_json_http(resObj, httpCode)
   return httpRes
 
 
@@ -224,12 +264,15 @@ def api_user_get(uid):
       "msg": "user dn not found",
       "status": 404
     }
+    httpCode = 404
   else:
     resObj = {
       "data": dataObj,
       "status": 200
     }
-  httpRes = myHelper.obj_to_json_http(resObj)
+    httpCode = 200
+
+  httpRes = myHelper.obj_to_json_http(resObj, httpCode)
   return httpRes
 
 #--------------------------
@@ -251,25 +294,31 @@ def api_user_delete():
       "uid": uid,
       "status": 200
     }
-    httpRes = myHelper.obj_to_json_http(resObj)
-    return httpRes
+    httpCode = 200
   else:
     resObj = {
       "msg": "user dn not found",
       "status": 404
     }
-    httpRes = myHelper.obj_to_json_http(resObj)
-    return httpRes
+    httpCode = 404
+
+  httpRes = myHelper.obj_to_json_http(resObj, httpCode)
+  return httpRes
 
 
 
 
 #-Pre-Handlers-----------------------------------------------------
-@app.before_first_request
-def check_ldap_ready():
-  myLdapTool.app_pre_config()
 
+#@app.before_first_request
 @app.before_request
+def check_ldap_ready():
+  if "check_ldap_ready" not in session:
+    print("RUN: check_ldap_ready")
+    res = myLdapTool.app_pre_config()
+    if res:
+      session["check_ldap_ready"] = True
+
 def check_access():
   if not request.path.startswith('/api/auth') and "uid" not in session:
     resObj = {

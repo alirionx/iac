@@ -21,7 +21,8 @@ initGrpObj = {
 import json
 from flask import Response
 #------------------------------
-from ldap3 import Server, Connection, ALL, MODIFY_REPLACE, MODIFY_ADD
+from ldap3 import Server, Connection, ALL, MODIFY_REPLACE, MODIFY_ADD, HASHED_MD5
+from ldap3.utils.hashed import hashed
 if slapdMode == "ldaps": uSsl = True
 else: uSsl = False
 
@@ -114,6 +115,8 @@ class ldaptool:
             'member': slapdUsrDn,
           }
         )
+
+    return True
 
   #------------------------------------------------
   def check_user(self, userDn ):
@@ -220,7 +223,8 @@ class ldaptool:
     try: 
       uid = dataObj['uid']
       del dataObj['uid']
-    except:
+    except Exception as e:
+      print('Error: '+ str(e))
       return False
 
     if slapdBaseDn in uid:
@@ -234,6 +238,28 @@ class ldaptool:
       if not res: chk = res
     
     return chk
+
+  #------------------------------------------------
+  def vdi_user_setpwd(self, dataObj ):
+    try: 
+      uid = dataObj['uid']
+      pwd = dataObj['pwd']
+    except Exception as e:
+      print('Error: '+ str(e))
+      return False
+
+    if slapdBaseDn in uid:
+      userDn = uid
+    else:
+      userDn = 'uid='+uid+',ou=users,'+slapdBaseDn
+    
+    hashedPwd = hashed(HASHED_MD5, pwd)
+    ldapChanges = {
+      'userPassword': [(MODIFY_REPLACE, [hashedPwd])]
+    }
+    res = self.curCon.modify(userDn, changes=ldapChanges )
+    
+    return res
 
   #------------------------------------------------
   def vdi_users_delete(self, uid ):
@@ -251,19 +277,31 @@ class ldaptool:
       userDn = usr
     else:
       userDn = 'uid='+usr+',ou=users,'+slapdBaseDn
-
-    #print(userDn)
-
-    authRes = self.curCon.rebind(user=userDn, password=pwd)
-    self.curCon.search(userDn, '(objectclass=inetOrgPerson)', attributes=["memberOf"])
     
+    authRes = self.curCon.rebind(user=userDn, password=pwd)
+
+    self.curCon.search(initGrpObj["admins"], '(objectclass=groupOfNames)', attributes=["member"])
     try:
-      memOfs = self.curCon.entries[0]["memberOf"]
+      ldapEntryAry = self.curCon.entries[0]['member']
     except:
       return False
 
-    if initGrpObj["admins"] not in memOfs:
-      authRes = False
+    if userDn not in ldapEntryAry:
+      return False
+    else:
+      return authRes
+
+    
+    # authRes = self.curCon.rebind(user=userDn, password=pwd)
+    # self.curCon.search(userDn, '(objectclass=inetOrgPerson)', attributes=["memberOf"])
+
+    # try:
+    #   memOfs = self.curCon.entries[0]["memberOf"]
+    # except:
+    #   return False
+
+    # if initGrpObj["admins"] not in memOfs:
+    #   authRes = False
    
-    return authRes
+    #return authRes
   

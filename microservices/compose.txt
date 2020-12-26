@@ -1,0 +1,52 @@
+
+
+docker run -d \
+  --name slapd1 \
+  -p 389:389 \
+  --network vdi \
+  manager1:5000/slapd:v02
+
+docker run -d \
+  --name myriadb1 \
+  -p 3306:3306 \
+  -e MYUSR=penner \
+  -e MYPWD=penner \
+  -e MYDB=guacamole_db \
+  -v $PWD/inject:/inject \
+  --network vdi \
+  manager1:5000/myriadb:v01
+
+docker run -d \
+  --name guacd1 \
+  --network vdi \
+  guacamole/guacd
+
+docker run -d \
+  --name guacamole1 \
+  --network vdi \
+  -p 8181:8080 \
+  -e GUACD_HOSTNAME=guacd1 \
+  -e GUACD_PORT=4822 \
+  -e MYSQL_HOSTNAME=myriadb1 \
+  -e MYSQL_PORT=3306 \
+  -e MYSQL_DATABASE=guacamole_db \
+  -e MYSQL_USER=penner \
+  -e MYSQL_PASSWORD=penner \
+  -e MYSQL_DEFAULT_MAX_CONNECTIONS_PER_USER=2 \
+  -e MYSQL_AUTO_CREATE_ACCOUNTS=true \
+  -e LDAP_HOSTNAME=slapd1 \
+  -e LDAP_PORT=389 \
+  -e LDAP_ENCRYPTION_METHOD=none \
+  -e LDAP_USER_BASE_DN=ou=users,dc=vdi,dc=dev \
+  -e LDAP_GROUP_BASE_DN=ou=groups,dc=vdi,dc=dev \
+  -e LDAP_SEARCH_BIND_DN=cn=admin,dc=vdi,dc=dev \
+  -e LDAP_SEARCH_BIND_PASSWORD=admin \
+  -e LDAP_USERNAME_ATTRIBUTE=uid \
+  -e LDAP_GROUP_NAME_ATTRIBUTE=cn \
+  guacamole/guacamole
+
+
+docker run -d \
+  --network vdi \
+  --name vdi1 \
+  manager1:5000/sessionhost:v01
