@@ -31,8 +31,11 @@
         </td>
       </tr>
       <tr>
-        <td :colspan=defi.length+1 :style="{border:'none', textAlign:'right', paddingRight:'22px'}">
-          <button v-on:click="form_user_create">add</button>
+        <td :colspan=defi.length>
+          <button v-on:click="guac_sync">sync with guacamole</button>  
+        </td>
+        <td>
+          <button v-on:click="form_user_create">add</button>  
         </td>
       </tr>
     </table>
@@ -205,10 +208,24 @@ export default {
         this.msgIn = "Failed to detele user "+uid;
       });
     },
-
-
     //---------------------------------------------
     
+    guac_sync(){
+      console.log("guac_sync");
+      fetch('/api/users/sync', {
+        method: 'POST',
+      })
+      .then(response => response.json())
+      .then(data => {
+        console.log('Response:', data);
+        this.msgIn = "ldap users successfully synced with guacamole";
+      })
+      .catch((error) => {
+        console.error('Error:', error);
+        this.msgIn = "Failed to sync users with guacamole";
+      });
+    }
+
   }
 }
 </script>
@@ -217,6 +234,13 @@ export default {
 .stdTable{
   margin: 100px auto 40px auto;
   min-width: 800px;
+}
+.stdTable tr:last-child td{
+  border: none;
+  text-align: left;
+}
+.stdTable tr:last-child td:last-child{
+  text-align: center;
 }
 .stdTable th{
   background-color: #2c3e50;
@@ -235,7 +259,7 @@ export default {
 }
 .stdTable button{
   min-width: 50px;
-  padding:2px;
+  padding:2px 10px 2px 10px;
   margin: 8px auto auto auto;
   color: #fff;
   background-color: rgb(68, 23, 19);

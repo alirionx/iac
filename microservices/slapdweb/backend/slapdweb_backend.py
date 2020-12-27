@@ -8,7 +8,7 @@ import importlib
 
 #-Try to load required extra modules-------------------------------
 
-modList = ["flask", "ldap3"]
+modList = ["flask", "ldap3", "pymysql"]
 errList = []
 for mod in modList:
   try:
@@ -25,16 +25,18 @@ if len(errList) > 0:
 from flask import Flask, request, session
 #import ldap3
 from ldap3 import Server, Connection, SAFE_SYNC
-from helpers import helpers, ldaptool
+from helpers import helpers, ldaptool, mysqltool
 #------------------------------------------------------------------
 
 #-Global Vars------------------------------------------------------
 CurPath = os.path.dirname(os.path.realpath(__file__))
 
-try: myHelper 
+try: myHelper
 except: myHelper = helpers()
-try: myLdapTool
+try: myLdapTool.con_check() 
 except: myLdapTool = ldaptool()
+try: myMysqlTool.con_check()
+except: myMysqlTool = mysqltool()
 
 #-Build the flask app object---------------------------------------
 app = Flask(__name__)
@@ -177,6 +179,27 @@ def api_users_get():
   return httpRes
 
 #--------------------------
+@app.route('/api/users/sync', methods=['POST'])
+def api_users_sync():
+  
+  res = myMysqlTool.ldap_guacamole_sync()
+  if res:
+    resObj = {
+      "action": "api_users_sync",
+      "status": 200
+    }
+    httpCode = 200
+  else:
+    resObj = {
+      "msg": "something went wrong",
+      "status": 400
+    }
+    httpCode = 400
+
+  httpRes = myHelper.obj_to_json_http(resObj, httpCode)
+  return httpRes
+  
+#--------------------------
 @app.route('/api/user/create', methods=['POST'])
 def api_user_create():
   try:
@@ -318,6 +341,7 @@ def check_ldap_ready():
     res = myLdapTool.app_pre_config()
     if res:
       session["check_ldap_ready"] = True
+      
 
 def check_access():
   if not request.path.startswith('/api/auth') and "uid" not in session:

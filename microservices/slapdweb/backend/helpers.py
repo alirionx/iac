@@ -1,6 +1,7 @@
 
 #-Global Vars---------------------------------------------------------------------
 slapdHost = "192.168.10.61"
+#slapdHost = "slapd1"
 slapdPort = 389
 slapdMode = "ldap" # could be ldaps
 slapdBaseDn = "dc=vdi,dc=dev"
@@ -16,6 +17,13 @@ initGrpObj = {
   "vdi": "cn=vdi,ou=groups,dc=vdi,dc=dev"
 }
 
+myHost = "192.168.10.61"
+myPort = 3306
+myUsr = "penner"
+myPwd = "penner"
+myDb = "guacamole_db"
+guacAdm = "guacadmin"
+
 #---------------------------------------------------------------------------------
 
 import json
@@ -25,6 +33,8 @@ from ldap3 import Server, Connection, ALL, MODIFY_REPLACE, MODIFY_ADD, HASHED_MD
 from ldap3.utils.hashed import hashed
 if slapdMode == "ldaps": uSsl = True
 else: uSsl = False
+
+import pymysql
 
 #---------------------------------------------------------------------------------
 class helpers:
@@ -74,6 +84,14 @@ class ldaptool:
   #     return False
 
     #print(conSrv.info)
+
+
+  def con_check(self ):
+    ldapSrv = Server(slapdHost+":"+slapdPort)
+    ldapCon = Connection(ldapSrv)
+    ldapCon.bind()
+
+  #-----------------------------
 
   def app_pre_config(self ):
     
@@ -304,4 +322,91 @@ class ldaptool:
     #   authRes = False
    
     #return authRes
-  
+
+
+#--------------------------------------------------------------------------------
+class mysqltool:
+  #-Fixed Class Vars---------------------------------------------
+
+  #-Initializer--------------------------------------------------
+  def __init__(self):
+    try:
+      self.myCon = pymysql.connect(myHost, myUsr, myPwd, myDb, myPort)
+      self.myCurs = self.myCon.cursor(pymysql.cursors.DictCursor)
+      print('*New mysqltools object created')
+    except Exception as e:
+      print('Error: '+ str(e))
+      return None
+      
+
+
+  #-The Methods--------------------------------------------------
+  def con_check(self):
+    pymysql.connect(myHost, myUsr, myPwd, myDb, myPort)
+
+
+  def ldap_guacamole_sync(self ):
+    self.myCurs.execute('''
+      SELECT 
+        a.name, 
+        b.organization
+
+        FROM guacamole_entity a
+        JOIN guacamole_user b
+        ON (a.entity_id = b.entity_id)
+
+        WHERE b.organization = 'ldap'
+      ;
+    ''')
+    qryRes = self.myCurs.fetchall()
+    myUsrAry = []
+    for row in qryRes:
+      if row['name'] != guacAdm:
+        myUsrAry.append(row['name'])
+    
+    tmpLdapTool = ldaptool()
+    ldapUsrObj = tmpLdapTool.vdi_users_get()
+    ldapUsrAry = []
+    for usr in ldapUsrObj:
+      ldapUsrAry.append(usr['uid'])
+    
+    print(ldapUsrAry, myUsrAry)
+
+    for uid in ldapUsrAry:
+      if uid not in myUsrAry:
+        self.myCurs.execute('''
+          INSERT INTO guacamole_entity (name, type)
+          VALUES ('%s', 'USER');
+        ''' %uid)
+        self.myCon.commit()
+        self.myCurs.execute('''
+          SELECT
+            entity_id,
+            CONVERT(CURRENT_TIMESTAMP, CHAR(50)) as TIMESTAMP
+          FROM guacamole_entity
+          WHERE
+            name = '%s'
+            AND type = 'USER';
+        ''' %uid)
+        qryRes = self.myCurs.fetchone()
+        print(qryRes)
+        entityId = str(qryRes['entity_id'])
+        curTimestamp = qryRes['TIMESTAMP']
+        
+        self.myCurs.execute('''
+          INSERT INTO guacamole_user 
+            ( entity_id, password_hash, password_date, organization ) 
+            VALUES ('''+entityId+''', "1234", "'''+curTimestamp+'''", "ldap"); 
+          ''')
+        self.myCon.commit()
+    
+    for usr in myUsrAry:
+      if usr not in ldapUsrAry:
+        self.myCurs.execute("DELETE FROM guacamole_entity WHERE name = '%s';" %usr)
+        self.myCon.commit()
+
+    return True
+
+
+
+#--------------------------------------------------------------------------------
