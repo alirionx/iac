@@ -1,7 +1,12 @@
 
 #-Global Vars---------------------------------------------------------------------
-slapdHost = "192.168.10.61"
-#slapdHost = "slapd1"
+import os
+if "LDAP_HOSTNAME" in os.environ:
+  slapdHost = os.getenv('LDAP_HOSTNAME')
+else: 
+  slapdHost = "slapd"
+
+#slapdHost = "192.168.10.61"
 slapdPort = 389
 slapdMode = "ldap" # could be ldaps
 slapdBaseDn = "dc=vdi,dc=dev"
@@ -17,12 +22,14 @@ initGrpObj = {
   "vdi": "cn=vdi,ou=groups,dc=vdi,dc=dev"
 }
 
-myHost = "192.168.10.61"
+#myHost = "192.168.10.61"
+myHost = "myriadb"
 myPort = 3306
-myUsr = "penner"
-myPwd = "penner"
+myUsr = "maria"
+myPwd = "maria"
 myDb = "guacamole_db"
 guacAdm = "guacadmin"
+guacVdiGrp = "vdi"
 
 #---------------------------------------------------------------------------------
 
@@ -61,16 +68,22 @@ class helpers:
 
 class ldaptool:
   #-Fixed Class Vars---------------------------------------------
+  try:
+    conSrv = Server(host=slapdHost, port=slapdPort, use_ssl=uSsl)
+    curCon = Connection(conSrv, slapdUsrDn, slapdUsrPwd, auto_bind=True, version=3)
+  except Exception as e:
+    print('Error: '+ str(e))
 
   #-Initializer--------------------------------------------------
   def __init__(self):
-    self.conSrv = Server(host=slapdHost, port=slapdPort, use_ssl=uSsl)
-    try:
-      self.curCon = Connection(self.conSrv, slapdUsrDn, slapdUsrPwd, auto_bind=True, version=3)
-      print('*New ldaptools object created')
-    except Exception as e:
-      print('Error: '+ str(e))
-      return None
+    print('*New ldaptools object created')
+    # self.conSrv = Server(host=slapdHost, port=slapdPort, use_ssl=uSsl)
+    # try:
+    #   self.curCon = Connection(self.conSrv, slapdUsrDn, slapdUsrPwd, auto_bind=True, version=3)
+    #   print('*New ldaptools object created')
+    # except Exception as e:
+    #   print('Error: '+ str(e))
+    #   return None
       
 
   #-The Methods--------------------------------------------------
@@ -87,7 +100,7 @@ class ldaptool:
 
 
   def con_check(self ):
-    ldapSrv = Server(slapdHost+":"+slapdPort)
+    ldapSrv = Server(host=slapdHost, port=slapdPort, use_ssl=uSsl)
     ldapCon = Connection(ldapSrv)
     ldapCon.bind()
 
@@ -106,7 +119,7 @@ class ldaptool:
 
     for ou in ouList:
       if 'ou='+ou+','+slapdBaseDn not in ouResList:
-        self.ldapCon.add(
+        self.curCon.add(
           'ou='+ou+','+slapdBaseDn, 
           'organizationalUnit', {
             'description': 'OrgUnit for directory %s' %ou, 
@@ -212,6 +225,19 @@ class ldaptool:
         tmpObj[key] = val
 
     return tmpObj
+
+
+  def vdi_user_ids_get(self ):
+    self.curCon.search('ou=users,'+slapdBaseDn, '(&(objectclass=inetOrgPerson)(memberOf=cn=vdi,ou=groups,dc=vdi,dc=dev))', attributes=["uid"])
+    ldapEntries = self.curCon.entries
+
+    resObj = []
+    for res in ldapEntries:
+      resPartObj = res.entry_attributes_as_dict
+      resObj.append(resPartObj['uid'][0])
+   
+    #print(resObj)
+    return resObj
 
   #------------------------------------------------
   def vdi_user_create(self, dataObj ):
@@ -327,16 +353,22 @@ class ldaptool:
 #--------------------------------------------------------------------------------
 class mysqltool:
   #-Fixed Class Vars---------------------------------------------
+  try:
+    myCon = pymysql.connect(host=myHost, port=myPort, user=myUsr, passwd=myPwd, db=myDb)
+    myCurs = myCon.cursor(pymysql.cursors.DictCursor)
+  except Exception as e:
+    print('Error: '+ str(e))
 
   #-Initializer--------------------------------------------------
   def __init__(self):
-    try:
-      self.myCon = pymysql.connect(myHost, myUsr, myPwd, myDb, myPort)
-      self.myCurs = self.myCon.cursor(pymysql.cursors.DictCursor)
-      print('*New mysqltools object created')
-    except Exception as e:
-      print('Error: '+ str(e))
-      return None
+    print('*New mysqltools object created')
+    # try:
+    #   self.myCon = pymysql.connect(myHost, myUsr, myPwd, myDb, myPort)
+    #   self.myCurs = self.myCon.cursor(pymysql.cursors.DictCursor)
+    #   print('*New mysqltools object created')
+    # except Exception as e:
+    #   print('Error: '+ str(e))
+    #   return None
       
 
 
@@ -344,8 +376,7 @@ class mysqltool:
   def con_check(self):
     pymysql.connect(myHost, myUsr, myPwd, myDb, myPort)
 
-
-  def ldap_guacamole_sync(self ):
+  def vdi_user_ids_get(self ):
     self.myCurs.execute('''
       SELECT 
         a.name, 
@@ -364,14 +395,37 @@ class mysqltool:
       if row['name'] != guacAdm:
         myUsrAry.append(row['name'])
     
-    tmpLdapTool = ldaptool()
-    ldapUsrObj = tmpLdapTool.vdi_users_get()
-    ldapUsrAry = []
-    for usr in ldapUsrObj:
-      ldapUsrAry.append(usr['uid'])
+    return myUsrAry
+
+  #-----------------------------------------
+  def chk_groups(self ):
+    self.myCurs.execute("SELECT * FROM guacamole_entity WHERE name = '%s';" % guacVdiGrp)
+    qryRes = self.myCurs.fetchone()
+    if qryRes == None:
+      self.myCurs.execute("INSERT INTO guacamole_entity (name, type) VALUES('%s', 'USER_GROUP');" % guacVdiGrp)
+      self.myCon.commit()
+
+      self.myCurs.execute("SELECT entity_id FROM guacamole_entity WHERE name = '%s';" % guacVdiGrp)
+      qryRes = self.myCurs.fetchone()
+      entityId = qryRes['entity_id']
+
+      self.myCurs.execute("INSERT INTO guacamole_user_group (entity_id, disabled) VALUES('%s', 0);" % entityId)
+      self.myCon.commit()
+
+
+  #-----------------------------------------
+  def ldap_guacamole_sync(self ):
     
+    self.chk_groups()
+
+    myUsrAry = self.vdi_user_ids_get()
+
+    tmpLdapTool = ldaptool()
+    ldapUsrAry = tmpLdapTool.vdi_user_ids_get()
+       
     print(ldapUsrAry, myUsrAry)
 
+    #--------------------------------------
     for uid in ldapUsrAry:
       if uid not in myUsrAry:
         self.myCurs.execute('''
@@ -399,14 +453,42 @@ class mysqltool:
             VALUES ('''+entityId+''', "1234", "'''+curTimestamp+'''", "ldap"); 
           ''')
         self.myCon.commit()
-    
+
+    #--------------------------------------
+    for uid in ldapUsrAry:
+      self.myCurs.execute("SELECT entity_id FROM guacamole_entity WHERE name = '%s';" % uid)
+      qryRes = self.myCurs.fetchone()
+      guacVdiUsrId = str(qryRes['entity_id'])
+
+      self.myCurs.execute('''
+        SELECT 
+        a.entity_id, 
+        b.user_group_id
+
+        FROM guacamole_entity a
+        JOIN guacamole_user_group b
+        ON (a.entity_id = b.entity_id)
+
+        WHERE a.name = "%s";
+      ''' % guacVdiGrp)
+      qryRes = self.myCurs.fetchone()
+      guacVdiGrpId = str(qryRes['user_group_id'])
+
+
+      #print(guacVdiGrpId, guacVdiUsrId)
+      self.myCurs.execute("SELECT * FROM guacamole_user_group_member WHERE user_group_id = "+guacVdiGrpId+" AND member_entity_id = "+guacVdiUsrId+";")
+      qryRes = self.myCurs.fetchone()
+      print(qryRes)
+      if qryRes == None:
+        self.myCurs.execute("INSERT INTO guacamole_user_group_member (user_group_id, member_entity_id) VALUES("+guacVdiGrpId+","+guacVdiUsrId+");" )
+        self.myCon.commit()
+
+    #--------------------------------------
     for usr in myUsrAry:
       if usr not in ldapUsrAry:
         self.myCurs.execute("DELETE FROM guacamole_entity WHERE name = '%s';" %usr)
         self.myCon.commit()
 
     return True
-
-
 
 #--------------------------------------------------------------------------------

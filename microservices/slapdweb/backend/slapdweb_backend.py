@@ -31,12 +31,16 @@ from helpers import helpers, ldaptool, mysqltool
 #-Global Vars------------------------------------------------------
 CurPath = os.path.dirname(os.path.realpath(__file__))
 
-try: myHelper
-except: myHelper = helpers()
-try: myLdapTool.con_check() 
-except: myLdapTool = ldaptool()
-try: myMysqlTool.con_check()
-except: myMysqlTool = mysqltool()
+# myHelper = helpers()
+# myLdapTool = ldaptool()
+# myMysqlTool = mysqltool()
+
+# try: myHelper
+# except: myHelper = helpers()
+# try: myLdapTool.con_check() 
+# except: myLdapTool = ldaptool()
+# try: myMysqlTool.con_check()
+# except: myMysqlTool = mysqltool()
 
 #-Build the flask app object---------------------------------------
 app = Flask(__name__)
@@ -44,6 +48,20 @@ app.secret_key = "changeit"
 app.debug = True
 
 #-The API Request Handler Area-------------------------------------
+@app.before_request
+def load_helpers_from_classes():
+  global myHelper
+  global myLdapTool
+  global myMysqlTool
+  
+  try: myHelper
+  except: myHelper = helpers()
+  try: myLdapTool.con_check()
+  except: myLdapTool = ldaptool()
+  try: myMysqlTool.con_check()
+  except: myMysqlTool = mysqltool()
+
+
 
 @app.route('/', methods=['GET'])
 def hello_app():
@@ -162,7 +180,7 @@ def api_test_userinfo(dn):
 def api_users_get():
 
   dataObj = myLdapTool.vdi_users_get()
-  if not dataObj:
+  if dataObj == False:
     resObj = {
       "msg": "something went wrong",
       "status": 400

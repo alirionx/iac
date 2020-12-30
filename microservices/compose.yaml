@@ -1,0 +1,85 @@
+version: "3.3"
+services:
+  slapd:
+    build: ./slapd/
+    ports:
+      - "389:389"
+    #volumes:
+      #- slapddata:/var/lib/ldap
+  
+  myriadb:
+    build: ./myriadb/
+    ports:
+      - "3306:3306"
+    links:
+      - slapd
+    volumes:
+      #- mariadata:/var/lib/mysql
+      - ./myriadb/inject:/inject
+    environment:
+      - MYUSR=maria
+      - MYPWD=maria
+      - MYDB=guacamole_db
+  
+  vdi1:
+    build: ./sessionhost/
+    ports:
+      - "3389:3389"
+    links:
+      - slapd
+
+  guacd:
+    image: guacamole/guacd
+    links:
+      - slapd
+      - myriadb
+
+  guacamole:
+    image: guacamole/guacamole
+    links:
+      - slapd
+      - myriadb
+      - guacd
+      - vdi1
+    ports:
+      - "8181:8080"
+    environment:
+      - GUACD_HOSTNAME=guacd
+      - GUACD_PORT=4822
+      - MYSQL_HOSTNAME=myriadb
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=guacamole_db
+      - MYSQL_USER=maria
+      - MYSQL_PASSWORD=maria
+      - MYSQL_DEFAULT_MAX_CONNECTIONS_PER_USER=2
+      - MYSQL_AUTO_CREATE_ACCOUNTS=true
+      - LDAP_HOSTNAME=slapd
+      - LDAP_PORT=389
+      - LDAP_ENCRYPTION_METHOD=none
+      - LDAP_USER_BASE_DN=ou=users,dc=vdi,dc=dev
+      - LDAP_GROUP_BASE_DN=ou=groups,dc=vdi,dc=dev
+      - LDAP_SEARCH_BIND_DN=cn=admin,dc=vdi,dc=dev
+      - LDAP_SEARCH_BIND_PASSWORD=admin
+      - LDAP_USERNAME_ATTRIBUTE=uid
+      - LDAP_GROUP_NAME_ATTRIBUTE=cn
+  
+  slapdweb_spa:
+    build: ./slapdweb/spa/
+    ports:
+      - "8080:80"
+    links:
+      - slapdweb_be
+
+  slapdweb_be:
+    build: ./slapdweb/backend/
+    links:
+      - slapd
+      - myriadb
+  
+volumes:
+  mariadata: {}
+  slapddata: {}
+
+    
+      
+  
