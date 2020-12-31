@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if ! slapcat | grep vdi.dev || $REINIT == 'yes'; then
+if ! slapcat | grep vdi.dev || [ "$REINIT" == "yes" ]; then
   debconf-set-selections /root/slapd.debconf
   echo -e "slapd slapd/move_old_database boolean true" |debconf-set-selections
   DEBIAN_FRONTEND=noninteractive dpkg-reconfigure slapd

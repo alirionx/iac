@@ -75,6 +75,14 @@ services:
     links:
       - slapd
       - myriadb
+    environment:
+        - MYSQL_HOSTNAME=myriadb
+        - MYSQL_PORT=3306
+        - MYSQL_DATABASE=guacamole_db
+        - MYSQL_USER=maria
+        - MYSQL_PASSWORD=maria
+        - LDAP_HOSTNAME=slapd
+        - LDAP_PORT=389
   
 volumes:
   mariadata: {}

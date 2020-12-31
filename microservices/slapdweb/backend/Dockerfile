@@ -14,6 +14,6 @@ COPY *.py /app/
 WORKDIR /app
 
 #LAZY
-CMD python3 /app/slapdweb_backend.py
+#CMD python3 /app/slapdweb_backend.py
 
-#CMD gunicorn --bind 0.0.0.0:5000 slapdweb_backend:app
+CMD gunicorn --bind 0.0.0.0:5000 slapdweb_backend:app

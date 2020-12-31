@@ -31,9 +31,9 @@ from helpers import helpers, ldaptool, mysqltool
 #-Global Vars------------------------------------------------------
 CurPath = os.path.dirname(os.path.realpath(__file__))
 
-# myHelper = helpers()
-# myLdapTool = ldaptool()
-# myMysqlTool = mysqltool()
+myHelper = helpers()
+myLdapTool = ldaptool()
+myMysqlTool = mysqltool()
 
 # try: myHelper
 # except: myHelper = helpers()
@@ -47,21 +47,8 @@ app = Flask(__name__)
 app.secret_key = "changeit"
 app.debug = True
 
+
 #-The API Request Handler Area-------------------------------------
-@app.before_request
-def load_helpers_from_classes():
-  global myHelper
-  global myLdapTool
-  global myMysqlTool
-  
-  try: myHelper
-  except: myHelper = helpers()
-  try: myLdapTool.con_check()
-  except: myLdapTool = ldaptool()
-  try: myMysqlTool.con_check()
-  except: myMysqlTool = mysqltool()
-
-
 
 @app.route('/', methods=['GET'])
 def hello_app():
@@ -346,12 +333,22 @@ def api_user_delete():
   httpRes = myHelper.obj_to_json_http(resObj, httpCode)
   return httpRes
 
-
+#------------------------------------------------------------------
 
 
 #-Pre-Handlers-----------------------------------------------------
-
 #@app.before_first_request
+
+@app.before_request
+def check_access():
+  if not request.path.startswith('/api/auth') and "uid" not in session:
+    resObj = {
+      "status": 401,
+      "msg": "not logged in"
+    }
+    httpRes = myHelper.obj_to_json_http(resObj, 401)
+    return httpRes
+
 @app.before_request
 def check_ldap_ready():
   if "check_ldap_ready" not in session:
@@ -361,14 +358,7 @@ def check_ldap_ready():
       session["check_ldap_ready"] = True
       
 
-def check_access():
-  if not request.path.startswith('/api/auth') and "uid" not in session:
-    resObj = {
-      "status": 401,
-      "msg": "not logged in"
-    }
-    httpRes = myHelper.obj_to_json_http(resObj, 401)
-    return httpRes
+
 
 
 #-App Runner------------------------------------------------------
