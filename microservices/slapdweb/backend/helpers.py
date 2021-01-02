@@ -77,12 +77,18 @@ myDb = enVars["myDb"]
 guacAdm = "guacadmin"
 guacVdiGrp = "vdi"
 
+roleObj = {
+  "user": "vdi_user_set_user",
+  "admin": "vdi_user_set_admin"
+}
+
+
 #---------------------------------------------------------------------------------
 
 import json
 from flask import Response
 #------------------------------
-from ldap3 import Server, Connection, ALL, MODIFY_REPLACE, MODIFY_ADD, HASHED_MD5
+from ldap3 import Server, Connection, ALL, MODIFY_REPLACE, MODIFY_ADD, MODIFY_DELETE, HASHED_MD5
 from ldap3.utils.hashed import hashed
 if slapdMode == "ldaps": uSsl = True
 else: uSsl = False
@@ -264,17 +270,17 @@ class ldaptool:
     return tmpObj
 
   #----------------------------
-  def vdi_user_ids_get(self ):
+  def vdi_user_ids_roles_get(self ):
     ldapCon = self.create_ldap_cli()
 
-    ldapCon.search('ou=users,'+slapdBaseDn, '(&(objectclass=inetOrgPerson)(memberOf=cn=vdi,ou=groups,dc=vdi,dc=dev))', attributes=["uid"])
+    ldapCon.search('ou=users,'+slapdBaseDn, '(&(objectclass=inetOrgPerson)(memberOf=cn=vdi,ou=groups,dc=vdi,dc=dev))', attributes=["uid", "employeeType"])
     ldapEntries = ldapCon.entries
 
-    resObj = []
+    resObj = {}
     for res in ldapEntries:
       resPartObj = res.entry_attributes_as_dict
-      resObj.append(resPartObj['uid'][0])
-   
+      resObj[resPartObj['uid'][0]] = resPartObj['employeeType'][0]
+      
     #print(resObj)
     return resObj
 
@@ -298,9 +304,14 @@ class ldaptool:
 
     #print(userDn, dataObj, uidNbr)
     res = ldapCon.add(userDn, ['inetOrgPerson', 'posixAccount', 'top'], dataObj)
-    print(ldapCon.result)
-    res = ldapCon.modify(initGrpObj['vdi'], { 'member': [(MODIFY_ADD, [userDn] ) ] } )
-    print(ldapCon.result)
+    #print(ldapCon.result)
+    
+    try:
+      setRole = dataObj['employeeType']
+      res = self.vdi_user_set_role(userDn, setRole)
+    except Exception as e:
+      print('Error: '+ str(e))
+
     return res
 
   #------------------------------------------------
@@ -324,7 +335,54 @@ class ldaptool:
       res = ldapCon.modify(userDn, { key: [(MODIFY_REPLACE, [val] ) ] } )
       if not res: chk = res
     
+    try:
+      setRole = dataObj['employeeType']
+      res = self.vdi_user_set_role(userDn, setRole)
+      chk = True
+    except Exception as e:
+      print('Error: '+ str(e))
+      chk = False
+      
     return chk
+
+  #------------------------------------------------
+  def vdi_user_set_role(self, userDn, userRole ):
+    fw_func = getattr(self, roleObj[userRole])
+    res = fw_func(userDn)
+    return res
+
+  def vdi_user_set_user(self, userDn ):
+    print("make %s vdi user" %userDn)
+    ldapCon = self.create_ldap_cli()
+    
+    # ldapCon.search(userDn, '(objectclass=inetOrgPerson)', attributes=["memberOf"])
+    # ldapEntries = ldapCon.entries
+
+    try: 
+      for key, grpDn in initGrpObj.items():
+        res = ldapCon.modify(grpDn, { 'member': [(MODIFY_DELETE, [userDn] ) ] } )  
+    except Exception as e:
+      print('Error: '+ str(e))
+      res = False
+
+    res = ldapCon.modify(initGrpObj['vdi'], { 'member': [(MODIFY_ADD, [userDn] ) ] } )
+    return res
+
+  def vdi_user_set_admin(self, userDn ):
+    print("make %s vdi admin" %userDn)
+    ldapCon = self.create_ldap_cli()
+
+    ldapCon.search(userDn, '(objectclass=inetOrgPerson)', attributes=["memberOf"])
+    ldapEntries = ldapCon.entries
+    try:
+      memOfAry = ldapEntries[0].entry_attributes_as_dict["memberOf"]
+    except:
+      memOfAry = []
+    
+    for key, grpDn in initGrpObj.items():
+      if grpDn not in memOfAry:
+        res = ldapCon.modify(grpDn, { 'member': [(MODIFY_ADD, [userDn] ) ] } )
+    return res
 
   #------------------------------------------------
   def vdi_user_setpwd(self, dataObj ):
@@ -449,53 +507,62 @@ class mysqltool:
 
 
   #-----------------------------------------
-  def ldap_guacamole_sync(self ):
+
+  def vdi_user_create(self, uid):
+    myCurs = self.create_mysql_cli()
+  
+    try:
+      myCurs.execute('''
+        INSERT INTO guacamole_entity (name, type)
+        VALUES ('%s', 'USER');
+      ''' %uid)
+    except Exception as e:
+      print('Error: '+ str(e))
+      return False
+
+    try:
+      myCurs.execute('''
+        SELECT
+          entity_id,
+          CONVERT(CURRENT_TIMESTAMP, CHAR(50)) as TIMESTAMP
+        FROM guacamole_entity
+        WHERE
+          name = '%s'
+          AND type = 'USER';
+      ''' %uid)
+      qryRes = myCurs.fetchone()
+      #print(qryRes)
+      entityId = str(qryRes['entity_id'])
+      curTimestamp = qryRes['TIMESTAMP']
+    except Exception as e:
+      print('Error: '+ str(e))
+      return False
+        
+    try:
+      myCurs.execute('''
+        INSERT INTO guacamole_user 
+          ( entity_id, password_hash, password_date, organization ) 
+          VALUES ('''+entityId+''', "1234", "'''+curTimestamp+'''", "ldap"); 
+        ''')
+    except Exception as e:
+      print('Error: '+ str(e))
+      return False
+
+    return True
+    
+  #-----------------------------------------
+  def vdi_user_to_vdi_group(self, uid):
     myCurs = self.create_mysql_cli()
 
-    self.chk_groups()
-
-    myUsrAry = self.vdi_user_ids_get()
-
-    tmpLdapTool = ldaptool()
-    ldapUsrAry = tmpLdapTool.vdi_user_ids_get()
-       
-    print(ldapUsrAry, myUsrAry)
-
-    #--------------------------------------
-    for uid in ldapUsrAry:
-      if uid not in myUsrAry:
-        myCurs.execute('''
-          INSERT INTO guacamole_entity (name, type)
-          VALUES ('%s', 'USER');
-        ''' %uid)
-        #self.myCon.commit()
-        myCurs.execute('''
-          SELECT
-            entity_id,
-            CONVERT(CURRENT_TIMESTAMP, CHAR(50)) as TIMESTAMP
-          FROM guacamole_entity
-          WHERE
-            name = '%s'
-            AND type = 'USER';
-        ''' %uid)
-        qryRes = myCurs.fetchone()
-        print(qryRes)
-        entityId = str(qryRes['entity_id'])
-        curTimestamp = qryRes['TIMESTAMP']
-        
-        myCurs.execute('''
-          INSERT INTO guacamole_user 
-            ( entity_id, password_hash, password_date, organization ) 
-            VALUES ('''+entityId+''', "1234", "'''+curTimestamp+'''", "ldap"); 
-          ''')
-        #self.myCon.commit()
-
-    #--------------------------------------
-    for uid in ldapUsrAry:
+    try:
       myCurs.execute("SELECT entity_id FROM guacamole_entity WHERE name = '%s';" % uid)
       qryRes = myCurs.fetchone()
       guacVdiUsrId = str(qryRes['entity_id'])
+    except Exception as e:
+      print('Error: '+ str(e))
+      return False
 
+    try:
       myCurs.execute('''
         SELECT 
         a.entity_id, 
@@ -509,21 +576,121 @@ class mysqltool:
       ''' % guacVdiGrp)
       qryRes = myCurs.fetchone()
       guacVdiGrpId = str(qryRes['user_group_id'])
+    except Exception as e:
+      print('Error: '+ str(e))
+      return False
 
-
-      #print(guacVdiGrpId, guacVdiUsrId)
+    try:
       myCurs.execute("SELECT * FROM guacamole_user_group_member WHERE user_group_id = "+guacVdiGrpId+" AND member_entity_id = "+guacVdiUsrId+";")
       qryRes = myCurs.fetchone()
-      print(qryRes)
+      #print(qryRes)
+    except Exception as e:
+      print('Error: '+ str(e))
+      return False
+    
+    try:
       if qryRes == None:
         myCurs.execute("INSERT INTO guacamole_user_group_member (user_group_id, member_entity_id) VALUES("+guacVdiGrpId+","+guacVdiUsrId+");" )
-        #self.myCon.commit()
+    except Exception as e:
+      print('Error: '+ str(e))
+      return False
+
+    return True
+    
+  #-----------------------------------------
+  def vdi_user_delete(self, usr):
+    myCurs = self.create_mysql_cli()
+    try:
+      myCurs.execute("DELETE FROM guacamole_entity WHERE name = '%s';" %usr)
+    except Exception as e:
+      print('Error: '+ str(e))
+      return False
+
+    return True
+
+  #-----------------------------------------
+  def vdi_user_guac_admin(self, uid):
+    myCurs = self.create_mysql_cli()
+    try:
+      myCurs.execute("SELECT entity_id FROM guacamole_entity WHERE name = '%s';" %uid)
+      qryRes = myCurs.fetchone()
+      guacUsrId = str(qryRes['entity_id'])
+    except Exception as e:
+      print('Error: '+ str(e))
+      return False
+    
+    myCurs.execute("SELECT * FROM guacamole_system_permission WHERE permission = 'ADMINISTER' and entity_id = '%s';" %guacUsrId)
+    resLen = myCurs.rowcount
+    
+    if resLen == 0:
+      try:
+        myCurs.execute("INSERT INTO guacamole_system_permission (entity_id, permission) VALUES (%s, 'ADMINISTER' );" %guacUsrId)
+      except Exception as e:
+        print('Error: '+ str(e))
+        return False
+
+    return True
+  #-------------------------
+  def vdi_user_guac_admin_del(self, uid):
+    myCurs = self.create_mysql_cli()
+
+    try:
+      myCurs.execute("SELECT entity_id FROM guacamole_entity WHERE name = '%s';" %uid)
+      qryRes = myCurs.fetchone()
+      guacUsrId = str(qryRes['entity_id'])
+    except Exception as e:
+      print('Error: '+ str(e))
+      return False
+
+    try:
+      myCurs.execute("DELETE FROM guacamole_system_permission WHERE entity_id = %s and permission = 'ADMINISTER';" %guacUsrId)
+    except Exception as e:
+      print('Error: '+ str(e))
+      #return False
+    
+    return True
+    
+
+  #-----------------------------------------
+  def ldap_guacamole_sync(self ):
+    myCurs = self.create_mysql_cli()
+
+    self.chk_groups()
+
+    #--------------------------------------
+    myUsrAry = self.vdi_user_ids_get()
+
+    tmpLdapTool = ldaptool()
+    ldapUsrAry = []
+    uidRoleObj = tmpLdapTool.vdi_user_ids_roles_get()
+    for uid, role in uidRoleObj.items():
+      ldapUsrAry.append(uid)
+    print(ldapUsrAry, myUsrAry)
+
+    #--------------------------------------
+    for uid in ldapUsrAry:
+      if uid not in myUsrAry:
+        self.vdi_user_create(uid)
+
+    #--------------------------------------
+    for uid in ldapUsrAry:
+      self.vdi_user_to_vdi_group(uid)
 
     #--------------------------------------
     for usr in myUsrAry:
       if usr not in ldapUsrAry:
-        myCurs.execute("DELETE FROM guacamole_entity WHERE name = '%s';" %usr)
-        #self.myCon.commit()
+        self.vdi_user_delete(usr)
+
+    #--------------------------------------
+    for uid, role in uidRoleObj.items():
+      #print(role)
+      if role == "admin":
+        self.vdi_user_guac_admin(uid)
+      if role == "user":
+        self.vdi_user_guac_admin_del(uid)
+
+    #--------------------------------------
+
 
     return True
 

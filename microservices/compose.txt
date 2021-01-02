@@ -9,32 +9,32 @@ docker run -d \
 docker run -d \
   --name myriadb1 \
   -p 3306:3306 \
-  -e MYUSR=penner \
-  -e MYPWD=penner \
+  -e MYUSR=maria \
+  -e MYPWD=maria \
   -e MYDB=guacamole_db \
   -v $PWD/inject:/inject \
   --network vdi \
   manager1:5000/myriadb:v01
 
 docker run -d \
-  --name guacd1 \
+  --name guacd \
   --network vdi \
   guacamole/guacd
 
 docker run -d \
-  --name guacamole1 \
+  --name guacamole \
   --network vdi \
   -p 8181:8080 \
-  -e GUACD_HOSTNAME=guacd1 \
+  -e GUACD_HOSTNAME=guacd \
   -e GUACD_PORT=4822 \
-  -e MYSQL_HOSTNAME=myriadb1 \
+  -e MYSQL_HOSTNAME=myriadb \
   -e MYSQL_PORT=3306 \
   -e MYSQL_DATABASE=guacamole_db \
-  -e MYSQL_USER=penner \
-  -e MYSQL_PASSWORD=penner \
+  -e MYSQL_USER=maria \
+  -e MYSQL_PASSWORD=maria \
   -e MYSQL_DEFAULT_MAX_CONNECTIONS_PER_USER=2 \
   -e MYSQL_AUTO_CREATE_ACCOUNTS=true \
-  -e LDAP_HOSTNAME=slapd1 \
+  -e LDAP_HOSTNAME=slapd \
   -e LDAP_PORT=389 \
   -e LDAP_ENCRYPTION_METHOD=none \
   -e LDAP_USER_BASE_DN=ou=users,dc=vdi,dc=dev \

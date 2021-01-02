@@ -91,6 +91,11 @@ export default {
           "col": "loginShell",
           "hl": "Shell",
           "align": "left"
+        },
+        {
+          "col": "employeeType",
+          "hl": "Role",
+          "align": "center"
         }
       ],
       data: [],
@@ -99,7 +104,7 @@ export default {
       fwObj: {
         "edit": this.form_user_edit,
         "setpwd": this.form_user_setpwd,
-        "member": this.form_user_member,
+        //"member": this.form_user_member,
         "delete": this.fw_user_delete,
       },
     }

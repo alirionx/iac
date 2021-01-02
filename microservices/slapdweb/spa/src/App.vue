@@ -182,6 +182,16 @@ export default {
 .actionForm input[disabled]{
   background-color: #eee;
 }
+.actionForm select[type="dropdown"]{
+  width: 93%;
+  padding: 8px;
+  margin: 4px auto 10px auto;
+  border: 0.5px solid #888;
+  border-radius: 0px;
+  text-align: left;
+  font-size: 15px;
+  box-shadow: 0 1px 1px #666;
+}
 
 .actionForm div[css=btnFrame]{
   padding:4px;
@@ -202,6 +212,7 @@ export default {
 .actionForm div[css=btnFrame] button:hover{
   background-color: rgb(114, 38, 31);
 }
+
 
 </style>
  

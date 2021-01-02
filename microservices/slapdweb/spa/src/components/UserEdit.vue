@@ -9,6 +9,11 @@
         <div css="elmHl">{{elm.hl}}</div>
         <input v-if="elm.type=='text'" type="text" v-model="data[elm.col]" :placeholder="elm.placeholder" :id="'elm_'+elm.col" />
         <input v-if="elm.type=='static'" type="text" :disabled="true" v-model="data[elm.col]" :id="'elm_'+elm.col" />
+        <select v-if="elm.type=='select'" type="dropdown" v-model="data[elm.col]" :id="'elm_'+elm.col" >
+          <option v-for="(opt, idx2) in elm.options" :key="idx2" :value="opt.val">
+            {{opt.txt}}
+          </option>
+        </select>
       </div>
 
       <div css="btnFrame">
@@ -79,6 +84,23 @@ export default {
           "type": "text",
           "placeholder": "e.g /bin/bash",
           "regex": "^\\/(.)+$"
+        },
+        {
+          "col": "employeeType",
+          "hl": "Role",
+          "type": "select",
+          "placeholder": "",
+          "regex": "^(.)+$",
+          "options": [
+            {
+              "val": "user",
+              "txt": "vdi user"
+            },
+            {
+              "val": "admin",
+              "txt": "vdi stack admin"
+            }
+          ]
         }        
       ],
       data: {
@@ -88,6 +110,7 @@ export default {
         "sn": "",
         "homeDirectory": "",
         "loginShell": "",
+        "employeeType": "user",
       }
     }
   },
