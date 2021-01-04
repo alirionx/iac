@@ -69,6 +69,8 @@ services:
       - "8080:80"
     links:
       - slapdweb_be
+    environment:
+      - GUACD_HOSTNAME=guacamole
 
   slapdweb_be:
     build: ./slapdweb/backend/

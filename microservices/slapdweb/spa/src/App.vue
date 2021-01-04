@@ -3,7 +3,10 @@
     <MsgBox v-bind:msgIn=msgIn v-bind:callback="reset_msg"/>
     <div class="headBlock">
       <div css="hl">VDI Stack - User Management WebUi</div>
-      <div css="logoutBtn" v-if="usr !== false" v-on:click="logout">logout</div>
+      <div class="btnBar" >
+        <div v-on:click="open_vdi_url">vdi gui</div>
+        <div v-if="usr !== false" v-on:click="logout">logout</div>
+      </div>
     </div>
     <LoginForm v-if="usr == false" v-bind:callback="set_usr" />
     <UserTable v-if="usr != false" />
@@ -74,6 +77,9 @@ export default {
         this.msgIn = "Something went wrong";
       });
     },
+    open_vdi_url(){
+      window.open('/vdi/');
+    },
     reset_msg(){
       this.msgIn = '';
     }
@@ -109,16 +115,25 @@ export default {
   display:inline-block;
   *background-color: #35485c;
 }
-.headBlock div[css=logoutBtn]{
+.btnBar{
   font-size: 12px;
   position: absolute;
   right:14px;
-  bottom:10px;
+  bottom:6px;
+}
+.btnBar div{
+  display: inline-block;
+  min-width: 70px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  border-left: 2px solid #fff;
 }
-.headBlock div[css=logoutBtn]:hover{
+.btnBar div:hover{
   text-decoration: underline;
+}
+.btnBar div:last-child{
+  border-right: 2px solid #fff;
 }
 
 .blocker{

@@ -7,8 +7,10 @@ RUN apt update && \
 COPY ./dist/. /var/www/html/
 COPY nginx.conf /etc/nginx/sites-enabled/default
 
-#LAZY
-#CMD python3 /app/slapdweb_backend.py
+COPY start.sh /root/start.sh
+RUN chmod +x /root/start.sh
+CMD /root/start.sh
 
-CMD nginx -g 'daemon off;'
+#CMD nginx -g 'daemon off;'
 #CMD nginx
+
